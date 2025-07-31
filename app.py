@@ -8,7 +8,7 @@ from io import BytesIO
 import tempfile
 
 st.set_page_config(page_title="🎙️ Voice Typing App", layout="centered")
-st.title("🗣️ Voice Typing — Hindi / English / Hinglish")
+st.title("🗣️ Your Dictation Assitant")
 
 # Step 1: Language selection
 lang_option = st.selectbox("Select Language:", ["English", "Hindi", "Hinglish"])
