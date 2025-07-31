@@ -6,11 +6,11 @@ from docx.shared import Pt
 import base64
 from io import BytesIO
 import tempfile
-from pydub import AudioSegment
 
 st.set_page_config(page_title="🎙️ Voice Typing App", layout="centered")
 st.title("🗣️ Voice Typing — Hindi / English / Hinglish")
 
+# Step 1: Language
 lang_option = st.selectbox("Select Language:", ["English", "Hindi", "Hinglish"])
 lang_code = {"English": "en-IN", "Hindi": "hi-IN", "Hinglish": "hi-IN"}[lang_option]
 
@@ -18,15 +18,13 @@ st.markdown("### Step 2: 🎤 Click below to Start Recording")
 audio_bytes = audio_recorder()
 
 if audio_bytes:
-    st.audio(audio_bytes, format="audio/wav")  # Still useful for preview
+    st.audio(audio_bytes, format="audio/wav")
 
-    # Convert to wav using pydub
-    audio = AudioSegment.from_file(BytesIO(audio_bytes))  # auto-detect format (m4a/wav)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-        audio.export(tmp_wav.name, format="wav")
-        tmp_path = tmp_wav.name
+    # Only proceed if format is WAV
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
 
-    # Transcribe
     r = sr.Recognizer()
     with sr.AudioFile(tmp_path) as source:
         audio_data = r.record(source)
