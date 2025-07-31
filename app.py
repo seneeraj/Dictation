@@ -10,17 +10,25 @@ import tempfile
 st.set_page_config(page_title="🎙️ Voice Typing App", layout="centered")
 st.title("🗣️ Voice Typing — Hindi / English / Hinglish")
 
-# Step 1: Language
+# Step 1: Language selection
 lang_option = st.selectbox("Select Language:", ["English", "Hindi", "Hinglish"])
 lang_code = {"English": "en-IN", "Hindi": "hi-IN", "Hinglish": "hi-IN"}[lang_option]
 
-st.markdown("### Step 2: 🎤 Click below to Start Recording")
-audio_bytes = audio_recorder()
+# Step 2: Choose input method
+input_method = st.radio("Choose Input Method:", ["🎤 Record Audio", "📁 Upload .wav File"])
+
+audio_bytes = None
+if input_method == "🎤 Record Audio":
+    st.markdown("### Step 3: Click below to Start Recording")
+    audio_bytes = audio_recorder()
+elif input_method == "📁 Upload .wav File":
+    uploaded_file = st.file_uploader("Upload your audio (.wav only)", type=["wav"])
+    if uploaded_file:
+        audio_bytes = uploaded_file.read()
 
 if audio_bytes:
     st.audio(audio_bytes, format="audio/wav")
 
-    # Only proceed if format is WAV
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
@@ -33,7 +41,7 @@ if audio_bytes:
         st.success("✅ Transcription complete")
     except sr.UnknownValueError:
         text = ""
-        st.error("Could not understand audio")
+        st.error("❌ Could not understand the audio")
 
     if text:
         edited = st.text_area("📝 Edit transcription", text, height=200)
