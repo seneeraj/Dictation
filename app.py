@@ -1,68 +1,53 @@
 import streamlit as st
-import wave
-import json
-import os
-from vosk import Model, KaldiRecognizer
+import speech_recognition as sr
 from docx import Document
 from docx.shared import Pt
-from docx.oxml.ns import qn
+from io import BytesIO
+import base64
 import tempfile
 
-@st.cache_resource
-def load_model():
-    return Model("models/vosk-model-small-hi-0.22")
+st.set_page_config(page_title="🎙️ Voice Typing (Hindi/English)", layout="centered")
+st.title("🗣️ Upload Audio & Get Transcript")
 
-model = load_model()
+language = st.selectbox("Choose language", ["English", "Hindi", "Hinglish"])
+lang_code = {"English": "en-IN", "Hindi": "hi-IN", "Hinglish": "hi-IN"}[language]
 
-def transcribe_audio(wav_path):
-    wf = wave.open(wav_path, "rb")
-    rec = KaldiRecognizer(model, wf.getframerate())
-    rec.SetWords(True)
-    results = []
+audio_file = st.file_uploader("Upload WAV audio file", type=["wav"])
 
-    while True:
-        data = wf.readframes(4000)
-        if len(data) == 0:
-            break
-        if rec.AcceptWaveform(data):
-            results.append(json.loads(rec.Result())["text"])
+if audio_file is not None:
+    st.audio(audio_file, format="audio/wav")
 
-    results.append(json.loads(rec.FinalResult())["text"])
-    return " ".join(results)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(audio_file.read())
+        audio_path = tmp.name
 
-def save_to_docx(text, output_path):
-    doc = Document()
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Mangal'
-    style.element.rPr.rFonts.set(qn('w:eastAsia'), 'Mangal')
-    run = doc.add_paragraph().add_run(text)
-    run.font.size = Pt(14)
-    doc.save(output_path)
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_path) as source:
+        audio = recognizer.record(source)
 
-# Streamlit UI
-st.set_page_config(page_title="🗣️ Hindi Audio Transcriber", layout="centered")
-st.title("🎙️ Hindi Audio to Text (.docx) – Vosk")
-
-uploaded_file = st.file_uploader("Upload only .wav file", type=["wav"])
-
-if uploaded_file:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-        temp_file.write(uploaded_file.read())
-        temp_file_path = temp_file.name
-
-    st.info("🔄 Transcribing...")
     try:
-        transcript = transcribe_audio(temp_file_path)
-        os.remove(temp_file_path)
-    except Exception as e:
-        st.error(f"❌ Transcription failed: {e}")
-        st.stop()
+        text = recognizer.recognize_google(audio, language=lang_code)
+        st.session_state["transcribed"] = text
+        st.success("✅ Transcription complete.")
+    except:
+        st.error("Could not understand the audio.")
 
-    edited_text = st.text_area("📝 Edit Transcription", value=transcript, height=300)
-    filename = st.text_input("📁 Save As (no extension):", value="transcript")
+# Editable Text
+if "transcribed" in st.session_state:
+    edited = st.text_area("📝 Edit transcription", st.session_state["transcribed"], height=200)
 
-    if st.button("💾 Save .docx"):
-        output_path = f"{filename}.docx"
-        save_to_docx(edited_text, output_path)
-        st.success(f"✅ Saved as: {output_path}")
+    if st.button("💾 Save as Word (.doc)"):
+        doc = Document()
+        run = doc.add_paragraph().add_run(edited)
+        run.font.size = Pt(14)
+        if language != "English":
+            run.font.name = "Mangal"
+
+        buf = BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode()
+        st.markdown(
+            f'<a href="data:application/octet-stream;base64,{b64}" download="transcript.doc">📥 Download .doc</a>',
+            unsafe_allow_html=True
+        )
